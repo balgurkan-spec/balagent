@@ -7,6 +7,7 @@ export default function ChatClient() {
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Merhaba! Ben balAgent. Sorunu yaz, yardımcı olayım." }
   ]);
+
   const listRef = useRef(null);
 
   async function sendMessage(e) {
@@ -28,12 +29,22 @@ export default function ChatClient() {
         body: JSON.stringify({ messages: nextMessages, language })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Request failed");
+      // Hata olsa bile body'yi okumaya çalış
+      const data = await res.json().catch(() => ({}));
 
-      setMessages([...nextMessages, { role: "assistant", content: data.content || "Cevap alınamadı." }]);
+      // Route.js her durumda { content: "..."} dönüyor (biz öyle yaptık)
+      // Ama olur da { error: "..."} gelirse onu da göster
+      const text =
+        data?.content ||
+        data?.error ||
+        `Hata: API status ${res.status}`;
+
+      setMessages([...nextMessages, { role: "assistant", content: text }]);
     } catch (err) {
-      setMessages([...nextMessages, { role: "assistant", content: `Hata: ${err.message || err}` }]);
+      setMessages([
+        ...nextMessages,
+        { role: "assistant", content: `Hata: ${err?.message || String(err)}` }
+      ]);
     }
 
     requestAnimationFrame(() => {
