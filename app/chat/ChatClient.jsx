@@ -29,22 +29,22 @@ export default function ChatClient() {
         body: JSON.stringify({ messages: nextMessages, language })
       });
 
-      // Hata olsa bile body'yi okumaya çalış
-      const data = await res.json().catch(() => ({}));
+      // ✅ İster 200 ister 500 olsun, body'yi okumaya çalış
+      const raw = await res.text();
 
-      // Route.js her durumda { content: "..."} dönüyor (biz öyle yaptık)
-      // Ama olur da { error: "..."} gelirse onu da göster
-      const text =
-        data?.content ||
-        data?.error ||
-        `Hata: API status ${res.status}`;
+      // JSON ise parse et, değilse direkt metin olarak göster
+      let text = "";
+      try {
+        const data = JSON.parse(raw);
+        text = data?.content || data?.error || raw;
+      } catch {
+        text = raw || `Hata: API status ${res.status}`;
+      }
 
       setMessages([...nextMessages, { role: "assistant", content: text }]);
     } catch (err) {
-      setMessages([
-        ...nextMessages,
-        { role: "assistant", content: `Hata: ${err?.message || String(err)}` }
-      ]);
+      // ✅ Network hatası varsa bile bunu göster (Request failed değil)
+      setMessages([...nextMessages, { role: "assistant", content: `Network Hatası: ${err?.message || String(err)}` }]);
     }
 
     requestAnimationFrame(() => {
