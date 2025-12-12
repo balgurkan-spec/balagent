@@ -1,119 +1,77 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 export default function ChatClient() {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState(() => [
-    { role: "assistant", content: "Hi! I’m balAgent. (Chat UI is ready ✅)" }
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "Merhaba! Ben balAgent. Sorunu yaz, yardımcı olayım." }
   ]);
-
   const listRef = useRef(null);
 
-  const canSend = useMemo(() => input.trim().length > 0, [input]);
+  async function sendMessage(e) {
+    e.preventDefault();
+    if (!input.trim()) return;
 
-  function scrollToBottom() {
+    const userMessage = { role: "user", content: input.trim() };
+    const nextMessages = [...messages, userMessage];
+
+    setMessages(nextMessages);
+    setInput("");
+
+    try {
+      const language = (navigator.language || "").toLowerCase().startsWith("en") ? "en" : "tr";
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: nextMessages, language })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Request failed");
+
+      setMessages([...nextMessages, { role: "assistant", content: data.content || "Cevap alınamadı." }]);
+    } catch (err) {
+      setMessages([...nextMessages, { role: "assistant", content: `Hata: ${err.message || err}` }]);
+    }
+
     requestAnimationFrame(() => {
-      const el = listRef.current;
-      if (el) el.scrollTop = el.scrollHeight;
+      if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
     });
   }
 
-  function onSend(e) {
-    e.preventDefault();
-    if (!canSend) return;
-
-    const text = input.trim();
-    setInput("");
-
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: text },
-      { role: "assistant", content: `Echo: ${text}` }
-    ]);
-
-    scrollToBottom();
-  }
-
   return (
-    <main style={{ fontFamily: "system-ui", padding: 24, maxWidth: 900, margin: "0 auto" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>balAgent Chat</h1>
-          <p style={{ margin: "6px 0 0", opacity: 0.7 }}>
-            MVP chat screen. Next: connect OpenAI + TR/EN switch.
-          </p>
-        </div>
-        <a href="/" style={{ textDecoration: "none" }}>← Home</a>
-      </header>
+    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24, fontFamily: "system-ui" }}>
+      <h1>balAgent Chat</h1>
 
-      <section
+      <div
         ref={listRef}
         style={{
-          marginTop: 16,
-          border: "1px solid #e5e5e5",
-          borderRadius: 12,
+          border: "1px solid #ddd",
+          borderRadius: 10,
           padding: 12,
           height: 420,
-          overflow: "auto",
-          background: "white"
+          overflowY: "auto",
+          marginBottom: 12
         }}
       >
-        {messages.map((m, idx) => (
-          <div
-            key={idx}
-            style={{
-              display: "flex",
-              justifyContent: m.role === "user" ? "flex-end" : "flex-start",
-              margin: "10px 0"
-            }}
-          >
-            <div
-              style={{
-                maxWidth: "80%",
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid #e5e5e5",
-                background: m.role === "user" ? "#f5f5f5" : "white",
-                whiteSpace: "pre-wrap"
-              }}
-            >
-              <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 4 }}>
-                {m.role === "user" ? "You" : "balAgent"}
-              </div>
-              <div>{m.content}</div>
-            </div>
+        {messages.map((m, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            <strong>{m.role === "user" ? "Sen" : "balAgent"}:</strong>
+            <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
           </div>
         ))}
-      </section>
+      </div>
 
-      <form onSubmit={onSend} style={{ marginTop: 12, display: "flex", gap: 10 }}>
+      <form onSubmit={sendMessage} style={{ display: "flex", gap: 8 }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message…"
-          style={{
-            flex: 1,
-            padding: "12px 12px",
-            borderRadius: 12,
-            border: "1px solid #e5e5e5",
-            outline: "none"
-          }}
+          placeholder="Mesaj yaz..."
+          style={{ flex: 1, padding: 10 }}
         />
-        <button
-          type="submit"
-          disabled={!canSend}
-          style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "1px solid #e5e5e5",
-            background: canSend ? "black" : "#f0f0f0",
-            color: canSend ? "white" : "#888",
-            cursor: canSend ? "pointer" : "not-allowed"
-          }}
-        >
-          Send
-        </button>
+        <button type="submit">Gönder</button>
       </form>
     </main>
   );
